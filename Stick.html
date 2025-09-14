@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stickman Jumper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #1a202c;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 800px;
+            height: 400px;
+            background-color: #000;
+            border: 4px solid #fff;
+            position: relative;
+            overflow: hidden;
+            border-radius: 12px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        #ground {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50px;
+            background-color: #4a5568;
+            border-top: 4px solid #fff;
+            box-sizing: border-box;
+        }
+
+        .player {
+            width: 30px;
+            height: 50px;
+            background-color: #fff;
+            position: absolute;
+            bottom: 50px;
+            left: 50px;
+            transition: transform 0.2s ease-out;
+        }
+
+        .player.jumping {
+            animation: jump 0.4s ease-in-out forwards;
+        }
+
+        .obstacle {
+            background-color: #ff3860;
+            position: absolute;
+            bottom: 50px;
+        }
+
+        .message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            border: 2px solid white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 8px;
+            z-index: 10;
+        }
+
+        #start-button, #restart-button {
+            background-color: #38c172;
+            color: #1a202c;
+            padding: 12px 24px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        #start-button:hover, #restart-button:hover {
+            background-color: #2d995b;
+        }
+
+        @keyframes jump {
+            0% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-100px);
+            }
+            100% {
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center justify-center p-4">
+    <div class="flex flex-col items-center gap-4 mb-8">
+        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-yellow-300 drop-shadow-lg text-center">Stickman Jumper</h1>
+        <div class="text-lg sm:text-xl lg:text-2xl text-center">Score: <span id="score">0</span></div>
+    </div>
+    
+    <div id="game-container" class="w-full max-w-2xl h-64 sm:h-80 lg:h-96 rounded-xl shadow-2xl">
+        <div id="ground"></div>
+        <div id="player" class="player bg-white rounded-sm"></div>
+        
+        <div id="message-container" class="hidden">
+            <div class="message-box">
+                <p id="message-text" class="text-xl sm:text-2xl mb-4">Game Over!</p>
+                <button id="restart-button">Restart</button>
+            </div>
+        </div>
+        
+        <div id="start-screen" class="absolute inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center rounded-xl z-20">
+            <h2 class="text-2xl sm:text-3xl text-center mb-4 text-purple-400">Jump to Begin!</h2>
+            <p class="text-sm sm:text-base text-gray-300 text-center mb-6">Press the spacebar to jump.</p>
+            <button id="start-button">Start Game</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const gameContainer = document.getElementById('game-container');
+            const player = document.getElementById('player');
+            const scoreDisplay = document.getElementById('score');
+            const startScreen = document.getElementById('start-screen');
+            const startButton = document.getElementById('start-button');
+            const messageContainer = document.getElementById('message-container');
+            const messageText = document.getElementById('message-text');
+            const restartButton = document.getElementById('restart-button');
+
+            let score = 0;
+            let isJumping = false;
+            let isGameOver = false;
+            let gameLoop;
+            let obstacleGenerationInterval;
+            let scoreInterval;
+
+            // Obstacle types with different sizes
+            const obstacleTypes = [
+                { width: 20, height: 40 },
+                { width: 30, height: 60 },
+                { width: 40, height: 80 }
+            ];
+
+            function startGame() {
+                // Reset game state
+                isGameOver = false;
+                score = 0;
+                scoreDisplay.textContent = score;
+
+                // Clear any existing obstacles and player
+                gameContainer.innerHTML = `
+                    <div id="ground"></div>
+                    <div id="player" class="player bg-white rounded-sm"></div>
+                `;
+
+                // Hide the start and message screens
+                startScreen.classList.add('hidden');
+                messageContainer.classList.add('hidden');
+                
+                // Start the game intervals
+                gameLoop = setInterval(updateGame, 10);
+                scoreInterval = setInterval(increaseScore, 100);
+                obstacleGenerationInterval = setInterval(generateObstacle, 2000);
+            }
+
+            function increaseScore() {
+                score += 1;
+                scoreDisplay.textContent = score;
+            }
+
+            function jump() {
+                if (isJumping) return;
+                isJumping = true;
+                const player = document.getElementById('player');
+                if (!player) return; // Guard clause in case element is null
+                player.classList.add('jumping');
+                setTimeout(() => {
+                    player.classList.remove('jumping');
+                    isJumping = false;
+                }, 400); // Shorter duration for snappier jump
+            }
+
+            function generateObstacle() {
+                if (isGameOver) return;
+                
+                const gameContainer = document.getElementById('game-container');
+                const obstacle = document.createElement('div');
+                obstacle.classList.add('obstacle', 'rounded-sm');
+                
+                // Get a random obstacle type
+                const obstacleType = obstacleTypes[Math.floor(Math.random() * obstacleTypes.length)];
+                obstacle.style.width = `${obstacleType.width}px`;
+                obstacle.style.height = `${obstacleType.height}px`;
+
+                // Increase speed based on score for increasing difficulty
+                let obstacleSpeed = 2; // Base speed
+                if (score > 100) {
+                    obstacleSpeed = 3;
+                }
+                if (score > 200) {
+                    obstacleSpeed = 4;
+                }
+                if (score > 500) {
+                    obstacleSpeed = 5;
+                }
+
+                obstacle.style.left = `${gameContainer.offsetWidth}px`;
+                gameContainer.appendChild(obstacle);
+
+                const moveObstacle = setInterval(() => {
+                    const obstacleLeft = parseInt(obstacle.style.left);
+                    const player = document.getElementById('player');
+                    if (!player) {
+                        clearInterval(moveObstacle);
+                        return;
+                    }
+
+                    obstacle.style.left = `${obstacleLeft - obstacleSpeed}px`;
+
+                    const playerRect = player.getBoundingClientRect();
+                    const obstacleRect = obstacle.getBoundingClientRect();
+
+                    // Collision detection
+                    if (
+                        playerRect.left < obstacleRect.right &&
+                        playerRect.right > obstacleRect.left &&
+                        playerRect.top < obstacleRect.bottom &&
+                        playerRect.bottom > obstacleRect.top
+                    ) {
+                        endGame();
+                        clearInterval(moveObstacle);
+                    }
+
+                    if (obstacleLeft < -obstacleType.width) {
+                        clearInterval(moveObstacle);
+                        obstacle.remove();
+                    }
+                }, 10);
+            }
+
+            function endGame() {
+                if (isGameOver) return;
+                isGameOver = true;
+                // Stop all game intervals
+                clearInterval(gameLoop);
+                clearInterval(scoreInterval);
+                clearInterval(obstacleGenerationInterval);
+
+                const messageContainer = document.getElementById('message-container');
+                const messageText = document.getElementById('message-text');
+                messageText.textContent = `Game Over! Your score: ${score}`;
+                messageContainer.classList.remove('hidden');
+            }
+
+            function updateGame() {
+                // Main game loop (currently handled by interval functions)
+            }
+
+            // Event listeners for the start and restart buttons
+            startButton.addEventListener('click', startGame);
+            restartButton.addEventListener('click', startGame);
+
+            // Event listener for spacebar key press
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' && !isGameOver) {
+                    if (startScreen.classList.contains('hidden')) {
+                        jump();
+                    } else {
+                        startGame();
+                    }
+                }
+            });
+
+            // Initial setup to hide the message box
+            messageContainer.classList.add('hidden');
+        });
+    </script>
+</body>
+</html>
