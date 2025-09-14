@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tap to Grow</title>
+    <!-- Use Inter font from Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Load Tailwind CSS from CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(to bottom, #87CEEB, #1E90FF);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            color: #1a202c;
+            user-select: none;
+            overflow: hidden;
+        }
+        canvas {
+            background-color: transparent;
+            touch-action: none; /* Prevents default mobile actions like pinch-to-zoom */
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white">
+
+    <div class="fixed inset-0" style="background: linear-gradient(to bottom, #87CEEB, #1E90FF);"></div>
+    
+    <!-- Game UI -->
+    <div class="relative z-10 w-full max-w-2xl mx-auto p-4 sm:p-6 md:p-8 flex flex-col items-center">
+        
+        <!-- Score and UI container -->
+        <div class="bg-white bg-opacity-30 backdrop-blur-md text-slate-800 rounded-full py-2 px-6 sm:px-8 shadow-lg mb-4 sm:mb-8 font-bold text-lg sm:text-2xl">
+            Score: <span id="score-display">0</span>
+        </div>
+
+        <!-- Canvas for the game -->
+        <div class="w-full flex-grow flex items-center justify-center">
+            <canvas id="game-canvas" class="w-full max-w-xl h-auto aspect-square"></canvas>
+        </div>
+
+        <!-- Restart Button -->
+        <div class="w-full text-center mt-4 sm:mt-8">
+            <button id="restart-button" class="hidden bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-8 rounded-full shadow-lg transition-transform transform hover:scale-105 active:scale-95">
+                Restart Game
+            </button>
+        </div>
+    </div>
+    
+    <script>
+        // Set up the Firebase globals (required for context)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Get canvas and context
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI Elements
+        const scoreDisplay = document.getElementById('score-display');
+        const restartButton = document.getElementById('restart-button');
+
+        // Game Variables
+        let score = 0;
+        let isGameActive = true;
+        let tree = {
+            trunk: { x: 0, y: 0, width: 20, height: 40 },
+            leaves: { x: 0, y: 0, radius: 30 }
+        };
+
+        const initialTree = {
+            trunk: { x: 0, y: 0, width: 20, height: 40 },
+            leaves: { x: 0, y: 0, radius: 30 }
+        };
+
+        const growthFactor = 0.5; // How much the tree grows per tap
+
+        // --- Drawing Functions ---
+
+        function drawBackground() {
+            // No need to draw a background since we're using CSS gradients on the body
+        }
+
+        function drawTree() {
+            // Position the tree at the bottom center of the canvas
+            tree.trunk.x = canvas.width / 2;
+            tree.trunk.y = canvas.height;
+            tree.leaves.x = canvas.width / 2;
+            tree.leaves.y = canvas.height - tree.trunk.height;
+
+            // Draw the trunk
+            ctx.fillStyle = '#654321'; // Brown color
+            ctx.beginPath();
+            ctx.moveTo(tree.trunk.x - tree.trunk.width / 2, tree.trunk.y);
+            ctx.lineTo(tree.trunk.x - tree.trunk.width / 2, tree.trunk.y - tree.trunk.height);
+            ctx.lineTo(tree.trunk.x + tree.trunk.width / 2, tree.trunk.y - tree.trunk.height);
+            ctx.lineTo(tree.trunk.x + tree.trunk.width / 2, tree.trunk.y);
+            ctx.closePath();
+            ctx.fill();
+
+            // Draw the leaves
+            ctx.fillStyle = '#22c55e'; // Green color
+            ctx.beginPath();
+            ctx.arc(tree.leaves.x, tree.leaves.y, tree.leaves.radius, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawScene() {
+            // Clear the canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawTree();
+        }
+
+        // --- Game Logic ---
+
+        function updateScore(increment) {
+            score += increment;
+            scoreDisplay.textContent = score;
+        }
+        
+        function growTree() {
+            // Increase tree size smoothly
+            tree.trunk.width += growthFactor;
+            tree.trunk.height += growthFactor * 2;
+            tree.leaves.radius += growthFactor;
+        }
+
+        function handleTap() {
+            if (!isGameActive) return;
+
+            updateScore(1);
+            growTree();
+            drawScene(); // Redraw the scene immediately after a tap
+        }
+
+        function startGame() {
+            score = 0;
+            isGameActive = true;
+            tree.trunk = { ...initialTree.trunk };
+            tree.leaves = { ...initialTree.leaves };
+            scoreDisplay.textContent = score;
+            restartButton.classList.add('hidden');
+            drawScene();
+        }
+
+        function restartGame() {
+            // A simple wrapper function for the button
+            startGame();
+        }
+
+        // --- Event Listeners ---
+
+        // Handle mouse clicks
+        canvas.addEventListener('mousedown', (e) => {
+            handleTap();
+        });
+
+        // Handle touch events on mobile
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Prevents touch events from acting as mouse clicks
+            handleTap();
+        });
+        
+        restartButton.addEventListener('click', restartGame);
+
+        // Resize the canvas to fit its container
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            drawScene();
+        }
+
+        // Initial setup on page load
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            startGame();
+        });
+        window.addEventListener('resize', resizeCanvas);
+    </script>
+</body>
+</html>
